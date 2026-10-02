@@ -1,0 +1,51 @@
+# Caddy de la aplicación: sirve la app y pasa /api/* al backend.
+# Se usa igual en un servidor/LXC (rutas por defecto) y en Docker (variables de entorno).
+# El HTTPS lo pone el proxy que tengas delante (otro Caddy, Nginx Proxy Manager, Traefik…).
+{
+	auto_https off
+	servers {
+		# IP real del cliente para los límites de intentos. Solo se cree la cabecera X-Forwarded-For
+		# cuando la petición llega desde estos proxies. Si la app es pública, pon aquí SOLO la IP de tu
+		# proxy (variable PESCA_TRUSTED_PROXIES), para que nadie de fuera pueda inventarse su IP.
+		trusted_proxies static {$PESCA_TRUSTED_PROXIES:private_ranges}
+		trusted_proxies_strict
+	}
+}
+
+:{$PESCA_HTTP_PORT:80} {
+	root * {$PESCA_WEB_ROOT:/var/www/pesca}
+	encode gzip
+
+	# Tamaño máximo de las peticiones: 8 MB para sincronizar, 256 KB para el resto.
+	request_body /api/sync {
+		max_size 8MB
+	}
+	@notsync not path /api/sync
+	request_body @notsync {
+		max_size 256KB
+	}
+
+	header {
+		# La app solo carga sus propios archivos: nada de terceros.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	reverse_proxy /api/* 127.0.0.1:{$PESCA_API_PORT:8000} {
+		# El backend solo se fía de esta cabecera para los límites de intentos.
+		header_up X-Real-IP {client_ip}
+	}
+
+	# Que los dispositivos comprueben siempre si hay versión nueva.
+	@nocache path / /index.html /sw.js /manifest.json /privacy.html /terms.html
+	header @nocache Cache-Control "no-cache"
+
+	file_server
+}

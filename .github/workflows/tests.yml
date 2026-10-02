@@ -1,0 +1,21 @@
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Pruebas del backend
+        run: python -m unittest discover -s tests -v
+      - name: Sintaxis de la app
+        run: for f in app/js/*.js app/sw.js; do node --check "$f"; done

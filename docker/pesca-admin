@@ -1,0 +1,3 @@
+#!/bin/sh
+# Administración dentro del contenedor:  docker exec -it calendario-pesca pesca-admin users
+exec python3 /opt/pesca/server.py "$@"

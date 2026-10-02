@@ -1,0 +1,39 @@
+[Unit]
+Description=Calendario de Pesca - backend
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/pesca-api/server.py
+Environment=PESCA_DB=/var/lib/pesca/pesca.db
+Environment=PESCA_ALLOW_SIGNUP=1
+Environment=PYTHONUNBUFFERED=1
+# Ajustes de esta instalación: responsable (para la política de privacidad) y registro abierto o cerrado.
+EnvironmentFile=-/etc/default/pesca-api
+Restart=on-failure
+RestartSec=3
+User=pesca
+Group=pesca
+StateDirectory=pesca
+StateDirectoryMode=0750
+UMask=0077
+MemoryMax=512M
+
+# Endurecimiento: el servicio solo puede escribir en su carpeta de datos y no tiene privilegios.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

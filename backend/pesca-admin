@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Administración del Calendario de Pesca (dentro del servidor, como root).
+#   pesca-admin users                    usuarios, jornadas y denuncias pendientes
+#   pesca-admin reports [--all]          denuncias (pendientes o todas)
+#   pesca-admin resolve <id>             marcar una denuncia como revisada
+#   pesca-admin disable|enable <usuario> desactivar o reactivar una cuenta
+#   pesca-admin passwd <usuario>         cambiar la contraseña (cierra sus sesiones)
+#   pesca-admin adduser <usuario> [nombre]
+#   pesca-admin claim <usuario>          asignar jornadas de la versión sin usuarios
+#   pesca-admin deluser <usuario>        borrar usuario y todos sus datos
+#   pesca-admin signup on|off            abrir o cerrar el registro desde la app
+#   pesca-admin operator "Nombre" "contacto"   responsable que aparece en la política de privacidad
+set -euo pipefail
+
+CONF=/etc/default/pesca-api
+
+set_var() {  # set_var CLAVE valor  -> escribe CLAVE="valor" en $CONF sin tocar el resto
+  touch "$CONF"; chmod 640 "$CONF"
+  local tmp; tmp=$(mktemp)
+  grep -v "^$1=" "$CONF" > "$tmp" || true
+  local v="${2//[$'\n\r\"\\']/}"   # sin saltos de línea, comillas ni barras
+  printf '%s="%s"\n' "$1" "$v" >> "$tmp"
+  cat "$tmp" > "$CONF"; rm -f "$tmp"
+}
+
+case "${1:-}" in
+  signup)
+    case "${2:-}" in
+      on)  set_var PESCA_ALLOW_SIGNUP 1 ;;
+      off) set_var PESCA_ALLOW_SIGNUP 0 ;;
+      *)   echo "Uso: pesca-admin signup on|off"; exit 1 ;;
+    esac
+    systemctl restart pesca-api
+    echo "Registro ${2}."
+    exit 0 ;;
+  operator)
+    if [[ $# -lt 3 ]]; then echo 'Uso: pesca-admin operator "Nombre o entidad" "correo o web de contacto"'; exit 1; fi
+    set_var PESCA_OPERATOR_NAME "$2"
+    set_var PESCA_OPERATOR_CONTACT "$3"
+    systemctl restart pesca-api
+    echo "Responsable actualizado. Aparece en /privacy.html y /terms.html."
+    exit 0 ;;
+  ""|-h|--help)
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0 ;;
+esac
+
+exec runuser -u pesca -- env PESCA_DB=/var/lib/pesca/pesca.db python3 /opt/pesca-api/server.py "$@"

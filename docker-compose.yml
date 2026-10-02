@@ -1,0 +1,32 @@
+# Despliegue con Docker:  docker compose up -d   ->  http://localhost:8080
+# Ponle delante un proxy con HTTPS (la app lo necesita para instalarse y funcionar sin conexión).
+services:
+  pesca:
+    image: ghcr.io/enriquezaporta/calendario-pesca:latest
+    # Para construirla tú en vez de descargarla:  docker compose build
+    build: .
+    container_name: calendario-pesca
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Quién responde de los datos de esta instalación (aparece en la política de privacidad).
+      PESCA_OPERATOR_NAME: "Tu nombre"
+      PESCA_OPERATOR_CONTACT: "tu-correo@ejemplo.com"
+      # 1 = cualquiera puede crear cuenta; 0 = cerrado (créalas con pesca-admin adduser).
+      PESCA_ALLOW_SIGNUP: "1"
+      # IP de tu proxy con HTTPS. Solo de ahí se acepta la IP real del cliente (límites de intentos).
+      # Si lo dejas sin poner se confía en cualquier red privada, que vale para casa pero no para internet.
+      # PESCA_TRUSTED_PROXIES: "192.168.1.10"
+    volumes:
+      - pesca-data:/var/lib/pesca
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  pesca-data:
