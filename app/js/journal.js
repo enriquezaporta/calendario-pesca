@@ -2,15 +2,17 @@
 import * as db from './db.js';
 import {
   $, view, esc, pad, ymd, todayStr, num, int, fmtKgShort, fmtNum, fmtDate, MONTHS, TYPES, isComp,
-  SKY, SKY_LABEL, WIND, WIND_DIR, toast, confirmBox, state, setTitle, setFab, render, push, pop,
+  SKY, SKY_LABEL, WIND, WIND_DIR, toast, confirmBox, modal, state, setTitle, setFab, render, push, pop,
   refreshBadge, trySync,
 } from './core.js';
 import { MODALITIES, MODALITY_IDS, TIDES, modality, modalityOf, prepKeys } from './modalities.js';
+import { norm, placeIndex, matchPlace, filterLabel, placePicker, venuesOf, townOfVenue } from './places.js';
 
 // ---------- piezas compartidas ----------
 export function itemHTML(s) {
   const t = TYPES[s.type] || TYPES.concurso;
-  const where = [s.venue, s.competition && (s.competition + (s.round ? ' · J' + s.round : ''))].filter(Boolean).join(' — ');
+  const place = [s.venue, s.town].filter(Boolean).join(' · ');
+  const where = [place, s.competition && (s.competition + (s.round ? ' · J' + s.round : ''))].filter(Boolean).join(' — ');
   const hasRes = s.weightG != null || s.pieces != null;
   const res = hasRes
     ? `<b>${fmtKgShort(s.weightG)}<small> kg</small></b><span>${esc(s.pieces ?? '—')} pz${s.sectorRank ? ' · ' + esc(s.sectorRank) + 'º sec.' : ''}</span>`
@@ -70,7 +72,12 @@ export const fmtRank = r => r == null ? '—' : r.toLocaleString('es-ES', { maxi
 // ---------- calendario ----------
 async function calendar() {
   setTitle('Calendario'); setFab(true);
-  const all = await db.allSessions();
+  const everything = await db.allSessions();
+  const index = placeIndex(everything);
+  // Filtro por localidad / escenario (si la localidad o el escenario ya no existen, se quita).
+  if (state.place && !filterLabel(index, state.place)) state.place = null;
+  const f = state.place;
+  const all = f ? everything.filter(s => matchPlace(s, f)) : everything;
   const m = state.month;
   const y = m.getFullYear(), mo = m.getMonth();
   const byDay = {};
@@ -103,10 +110,18 @@ async function calendar() {
     list = all.filter(s => s.date.startsWith(monthPrefix)).sort((a, b) => a.date.localeCompare(b.date));
   }
   const upcoming = all.filter(s => s.date >= today && isComp(s)).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  const label = f ? filterLabel(index, f) : '';
+  const matches = f ? all.slice().sort((a, b) => b.date.localeCompare(a.date)) : [];
+  const noTown = f && !f.town;
 
   view.innerHTML = `
    <div class="cal-layout">
     <section class="cal-main">
+    <div class="placebar">
+      <div id="placePicker"></div>
+      ${f ? `<div class="pp-chip" role="status"><span>📍 ${esc(label)}</span><span class="muted small">${all.length} ${all.length === 1 ? 'jornada' : 'jornadas'}</span>
+        <button type="button" class="mini" id="placeClear" aria-label="Quitar filtro de lugar">✕</button></div>` : ''}
+    </div>
     <div class="monthnav">
       <button id="prev" aria-label="Mes anterior">‹</button>
       <h2>${(s => s[0].toUpperCase() + s.slice(1))(m.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))}</h2>
@@ -116,9 +131,16 @@ async function calendar() {
     <div class="legend"><span><i class="dot t-concurso"></i>Concurso</span><span><i class="dot t-campeonato"></i>Campeonato</span><span><i class="dot t-entrenamiento"></i>Entreno</span></div>
     </section>
     <aside class="cal-side">
+    ${f ? `
+    ${noTown ? `<div class="card notice"><p class="small">Estas jornadas son anteriores a la localidad obligatoria.${f.venue ? '' : ' Elige un escenario de este grupo para asignarle su localidad de una vez, o edita cada jornada.'}</p>
+      ${f.venue ? '<div class="actions"><button class="btn" id="assignTown">Asignar localidad a este escenario</button></div>' : ''}</div>` : ''}
+    ${state.selDay && state.selDay.startsWith(monthPrefix) ? `<h2>${esc(listTitle)}</h2>${list.length ? list.map(itemHTML).join('') : '<div class="empty">Nada este día en este lugar.</div>'}` : ''}
+    <h2>Jornadas en ${esc(label)} <span class="muted small">· ${matches.length}</span></h2>
+    ${matches.slice(0, 100).map(itemHTML).join('')}
+    ${matches.length > 100 ? `<p class="hint">Se muestran las 100 más recientes.</p>` : ''}` : `
     <h2>${esc(listTitle)}</h2>
     ${list.length ? list.map(itemHTML).join('') : `<div class="empty">${state.selDay ? 'Nada este día. Pulsa + para añadir.' : 'Sin jornadas este mes.'}</div>`}
-    ${upcoming.length ? `<h2>Próximas competiciones</h2>${upcoming.map(itemHTML).join('')}` : ''}
+    ${upcoming.length ? `<h2>Próximas competiciones</h2>${upcoming.map(itemHTML).join('')}` : ''}`}
     </aside>
    </div>
   `;
@@ -130,7 +152,35 @@ async function calendar() {
     state.selDay = state.selDay === d ? null : d;
     render({ keepScroll: true });
   });
+  placePicker($('#placePicker'), index, pick => { state.place = pick; state.selDay = null; render({ keepScroll: true }); });
+  if ($('#placeClear')) $('#placeClear').onclick = () => { state.place = null; render({ keepScroll: true }); };
+  if ($('#assignTown')) $('#assignTown').onclick = () => assignTown(everything, index, f);
   bindItems();
+}
+
+// Jornadas antiguas sin localidad: asigna una localidad a todas las de un escenario de una vez.
+async function assignTown(everything, index, f) {
+  const venue = index.find(t => !t.key)?.venues.find(v => v.key === f.venue);
+  if (!venue) return;
+  const towns = index.filter(t => t.key);
+  const res = await modal({
+    title: 'Asignar localidad',
+    html: `<p>¿En qué localidad está <b>${esc(venue.name)}</b>? Se asignará a sus ${venue.count} jornadas sin localidad.</p>
+      <label for="as-town">Localidad</label><input id="as-town" list="as-towns" maxlength="80" autocomplete="off">
+      <datalist id="as-towns">${towns.map(t => `<option value="${esc(t.name)}">`).join('')}</datalist>`,
+    actions: [{ label: 'Cancelar' }, { label: 'Asignar', value: true }],
+    onAction: (_, root) => {
+      const town = root.querySelector('#as-town').value.trim();
+      if (!town) throw new Error('Escribe la localidad.');
+      return town;
+    },
+  });
+  if (!res) return;
+  const targets = everything.filter(s => !norm(s.town) && norm(s.venue) === f.venue);
+  for (const s of targets) await db.saveSession({ ...s, town: res });
+  state.place = { town: norm(res), venue: f.venue };
+  refreshBadge(); toast(`Localidad asignada a ${targets.length} jornadas`); render({ keepScroll: true });
+  trySync(true);
 }
 
 // ---------- registro ----------
@@ -171,6 +221,7 @@ async function detail({ id, rec: friendRec }) {
     return r.length ? `<div class="card ${cls}"><p class="section-title">${esc(title)}</p><dl class="kv">${r.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : '';
   };
   const comp = block('Competición', [
+    ['Localidad', s.town],
     ['Escenario', s.venue],
     ['Campeonato', s.competition && (s.competition + (s.round ? ' — jornada ' + s.round : ''))],
     ['Sector / puesto', [s.sector && 'Sector ' + s.sector, s.peg && 'Puesto ' + s.peg].filter(Boolean).join(' · ')],
@@ -254,7 +305,7 @@ function collect(form, base, type, mod, sky, priv) {
   for (const k of ALL_PREP_KEYS) delete rec[k];
   Object.assign(rec, {
     type, modality: mod, sky, private: priv,
-    title: g('title'), date: g('date'), time: g('time'), venue: g('venue'),
+    title: g('title'), date: g('date'), time: g('time'), town: g('town'), venue: g('venue'),
     competition: comp ? g('competition') : '', round: comp ? g('round') : '',
     sector: comp ? g('sector') : '', peg: comp ? g('peg') : '',
     weightG: w == null ? null : Math.round(w * 1000),
@@ -282,7 +333,7 @@ async function form(top) {
     else if (top.dup) {
       // Duplicar: copia la preparación (modalidad, escenario, campos de pesca y cebado), no resultados ni tiempo.
       const d = top.dup, mod = modalityOf(d);
-      s = { type: d.type, modality: mod, venue: d.venue, competition: d.competition, date: todayStr() };
+      s = { type: d.type, modality: mod, town: d.town, venue: d.venue, competition: d.competition, date: todayStr() };
       for (const k of prepKeys(mod)) if (d[k] != null) s[k] = d[k];
     } else {
       s = { type: 'concurso', modality: state.user.modalities?.[0] || 'feeder', date: top.date || state.selDay || todayStr() };
@@ -294,7 +345,8 @@ async function form(top) {
   setTitle(id ? 'Editar jornada' : 'Nueva jornada');
 
   const all = await db.allSessions();
-  const lists = new Set(['venue', 'competition']);
+  const lists = new Set(['competition']);
+  const index = placeIndex(all);
   const v = k => esc(s[k] ?? '');
   const vn = k => s[k] == null ? '' : String(s[k]).replace('.', ',');
   const kg3 = g => g == null ? '' : (g / 1000).toFixed(3).replace('.', ',');
@@ -320,7 +372,16 @@ async function form(top) {
           <div><label for="f-date">Fecha</label><input id="f-date" name="date" type="date" required value="${v('date')}"></div>
           <div><label for="f-time">Hora</label><input id="f-time" name="time" type="time" value="${v('time')}"></div>
         </div>
-        <label for="f-venue">Escenario</label><input id="f-venue" name="venue" maxlength="120" list="dl-venue" value="${v('venue')}" placeholder="Río, embalse, playa, tramo…">
+        <div class="row2 place-fields">
+          <div><label for="f-town">Localidad <span class="req" aria-hidden="true">*</span></label>
+            <input id="f-town" name="town" maxlength="80" list="dl-town" required aria-required="true" autocomplete="off" value="${v('town')}" placeholder="Caspe, Calanda…">
+            <p class="field-err" id="err-town" role="alert"></p></div>
+          <div><label for="f-venue">Escenario <span class="req" aria-hidden="true">*</span></label>
+            <input id="f-venue" name="venue" maxlength="120" list="dl-venue" required aria-required="true" autocomplete="off" value="${v('venue')}" placeholder="Río, embalse, playa, tramo…">
+            <p class="field-err" id="err-venue" role="alert"></p></div>
+        </div>
+        <datalist id="dl-town">${index.filter(t => t.key).map(t => `<option value="${esc(t.name)}">`).join('')}</datalist>
+        <datalist id="dl-venue"></datalist>
         <div id="compFields">
           <div class="row2">
             <div><label for="f-comp">Campeonato / liga</label><input id="f-comp" name="competition" maxlength="120" list="dl-competition" value="${v('competition')}"></div>
@@ -396,12 +457,43 @@ async function form(top) {
   if ($('#otherMod')) $('#otherMod').onchange = e => switchMod(e.target.value);
   $('#back').onclick = pop;
 
+  // Escenarios sugeridos según la localidad escrita; si se elige un escenario conocido, se rellena su localidad.
+  const fillVenues = () => {
+    const own = venuesOf(index, $('#f-town').value);
+    const list = own.length ? own : index.flatMap(t => t.venues);
+    $('#dl-venue').innerHTML = [...new Set(list.map(x => x.name))].map(n => `<option value="${esc(n)}">`).join('');
+  };
+  fillVenues();
+  $('#f-town').addEventListener('input', () => { fillVenues(); $('#err-town').textContent = ''; $('#f-town').removeAttribute('aria-invalid'); });
+  $('#f-venue').addEventListener('input', () => {
+    $('#err-venue').textContent = ''; $('#f-venue').removeAttribute('aria-invalid');
+    if (!$('#f-town').value.trim()) {
+      const t = townOfVenue(index, $('#f-venue').value);
+      if (t) { $('#f-town').value = t; fillVenues(); }
+    }
+  });
+
   $('#f').onsubmit = async e => {
     e.preventDefault();
     const rec = collect(e.target, id ? s : {}, type, mod, sky, $('#priv').checked);
     rec.id = id || db.uuid();
     rec.deleted = false;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(rec.date)) return toast('Falta la fecha');
+    // Se guarda con la forma ya conocida ("caspe" -> "Caspe") para no crear duplicados.
+    const knownTown = index.find(t => t.key && t.key === norm(rec.town));
+    if (knownTown) {
+      rec.town = knownTown.name;
+      const knownVenue = knownTown.venues.find(x => x.key === norm(rec.venue));
+      if (knownVenue) rec.venue = knownVenue.name;
+    }
+    // Localidad y escenario son obligatorios.
+    const missing = [['town', 'Indica la localidad'], ['venue', 'Indica el escenario']].filter(([k]) => !rec[k]);
+    missing.forEach(([k, msg]) => { $('#err-' + k).textContent = msg; $('#f-' + k).setAttribute('aria-invalid', 'true'); });
+    if (missing.length) {
+      $('#f-' + missing[0][0]).focus();
+      $('#f-' + missing[0][0]).scrollIntoView({ block: 'center' });
+      return toast('Faltan la localidad o el escenario');
+    }
     await db.saveSession(rec);
     state.stack.pop();
     if (!id) {
@@ -441,11 +533,11 @@ async function season() {
 
   const venues = {};
   comps.concat(trains).filter(s => s.venue).forEach(s => {
-    const v = (venues[s.venue] ||= { n: 0, w: 0, wn: 0 });
-    v.n++; if (s.weightG != null) { v.w += s.weightG; v.wn++; }
+    const v = (venues[norm(s.venue) + '|' + norm(s.town)] ||= { name: s.venue, town: s.town, n: 0, w: 0, wn: 0 });
+    v.n++; if (typeof s.weightG === 'number') { v.w += s.weightG; v.wn++; }
   });
   const venueRows = Object.entries(venues).sort((a, b) => b[1].n - a[1].n).slice(0, 8)
-    .map(([name, v]) => `<tr><td>${esc(name)}</td><td>${v.n}</td><td>${v.wn ? fmtKgShort(v.w / v.wn) : '—'}</td></tr>`).join('');
+    .map(([, v]) => `<tr><td>${esc(v.name)}${v.town ? `<br><small class="muted">${esc(v.town)}</small>` : ''}</td><td>${v.n}</td><td>${v.wn ? fmtKgShort(v.w / v.wn) : '—'}</td></tr>`).join('');
 
   const kpi = (val, lbl) => `<div class="kpi"><b>${esc(val)}</b><span>${lbl}</span></div>`;
   view.innerHTML = `

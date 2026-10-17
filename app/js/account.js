@@ -230,7 +230,7 @@ async function settings() {
     <div class="card form">
       <p class="section-title">Privacidad</p>
       <p class="small">Qué ven tus amigos de tus jornadas:</p>
-      <label class="check"><input type="radio" name="share" value="results" ${u.shareLevel !== 'full' ? 'checked' : ''}> <span><b>Solo resultados</b><br><span class="muted small">Nombre y fecha de la jornada, modalidad, escenario, competición, peso, piezas, pieza mayor, especies y puestos.</span></span></label>
+      <label class="check"><input type="radio" name="share" value="results" ${u.shareLevel !== 'full' ? 'checked' : ''}> <span><b>Solo resultados</b><br><span class="muted small">Nombre y fecha de la jornada, modalidad, localidad y escenario, competición, peso, piezas, pieza mayor, especies y puestos.</span></span></label>
       <label class="check"><input type="radio" name="share" value="full" ${u.shareLevel === 'full' ? 'checked' : ''}> <span><b>Todo</b><br><span class="muted small">Además, la preparación (cebos, engodo, montajes…), el tiempo y la descripción.</span></span></label>
       <p class="hint">Las jornadas marcadas como privadas no las ve nadie. Nadie que no sea tu amigo ve nada.</p>
     </div>

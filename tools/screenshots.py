@@ -45,7 +45,7 @@ def season(rnd, mods, venues, comps, skill):
         kind = rnd.choice(["concurso", "campeonato", "entrenamiento", "concurso"])
         w = int(rnd.gauss(7500, 2500) * skill)
         s = {"id": str(uuid.uuid4()), "date": date, "time": "08:00", "type": kind, "modality": mod,
-             "venue": rnd.choice(venues), "weightG": max(w, 600), "pieces": max(3, int(w / rnd.randint(180, 320))),
+             **dict(zip(("town", "venue"), rnd.choice(venues))), "weightG": max(w, 600), "pieces": max(3, int(w / rnd.randint(180, 320))),
              "updatedAt": f"{date}T18:00:00Z", "sky": rnd.choice(["sol", "nubes-claros", "nublado", "lluvia"]),
              "temp": rnd.randint(9, 27), "wind": rnd.choice(["Calma", "Flojo", "Moderado"]), "windDir": rnd.choice(["N", "NO", "SE", "O"])}
         if kind != "entrenamiento":
@@ -98,6 +98,11 @@ async def shoot():
             pre = "escritorio" if desktop else "movil"
             await pg.click("#prev"); await pg.wait_for_timeout(400)
             await snap(pg, f"{pre}-calendario")
+            await pg.click("#pp-input"); await pg.fill("#pp-input", "caspe"); await pg.wait_for_timeout(400)
+            await snap(pg, f"{pre}-buscar-lugar")
+            await pg.click(".pp-town"); await pg.wait_for_timeout(600)
+            await snap(pg, f"{pre}-filtro-lugar")
+            await pg.click("#placeClear"); await pg.wait_for_timeout(400)
             await pg.locator(".item[data-open]").first.click(); await pg.wait_for_timeout(500)
             await snap(pg, f"{pre}-jornada", full=False)
             await pg.click("#back"); await pg.wait_for_timeout(300)
@@ -135,7 +140,8 @@ def main():
         for u, name, mods, pw in (("marta", "Marta", ["feeder", "coup"], "demo-marta-2026"),
                                   ("javi", "Javi", ["feeder", "carpfishing"], "demo-javi-2026")):
             users[u] = api("/auth/register", {"username": u, "name": name, "password": pw, "modalities": mods, "consent": True})["token"]
-        venues = ["Embalse de Calanda", "Río Ebro (Caspe)", "Canal Imperial", "Embalse de Mequinenza"]
+        venues = [("Calanda", "Embalse de Calanda"), ("Caspe", "Río Ebro"), ("Caspe", "Embalse de Mequinenza"),
+                  ("Zaragoza", "Canal Imperial"), ("Alcañiz", "Río Guadalope")]
         comps = [("Liga provincial", "Liga provincial de feeder"), ("Open de primavera", "Open de primavera"), ("Campeonato autonómico", "Campeonato autonómico")]
         marta = season(rnd, ["feeder", "coup", "feeder"], venues, comps, 1.1)
         javi = season(rnd, ["feeder", "carpfishing"], venues, comps, 0.95)
@@ -147,7 +153,7 @@ def main():
                 javi.append(j)
         marta.append({"id": str(uuid.uuid4()), "date": "2026-10-18", "type": "campeonato", "modality": "feeder",
                       "title": "Campeonato autonómico", "competition": "Campeonato autonómico", "round": "1",
-                      "venue": "Embalse de Calanda", "updatedAt": "2026-10-01T10:00:00Z"})
+                      "town": "Calanda", "venue": "Embalse de Calanda", "updatedAt": "2026-10-01T10:00:00Z"})
         for u, data in (("marta", marta), ("javi", javi)):
             api("/sync", {"lastSyncAt": 0, "changes": {"sessions": data}}, users[u])
         api("/me", {"shareLevel": "full"}, users["javi"])

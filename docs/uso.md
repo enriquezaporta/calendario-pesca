@@ -20,7 +20,26 @@ En el ordenador cada día muestra el nombre, los kilos y las piezas, y la lista 
 
 ![Calendario en el escritorio](img/escritorio-calendario.png)
 
+### Buscar por localidad o escenario
+
+Encima del calendario hay un buscador. Al tocarlo se despliega la lista de **localidades** con sus
+**escenarios** debajo; al escribir se filtra (sin importar tildes ni mayúsculas: «alcaniz» encuentra Alcañiz)
+y, si buscas un escenario, aparece con su localidad encima. Al elegir una localidad o un escenario:
+
+- el calendario muestra solo esas jornadas,
+- al lado (o debajo, en el móvil) aparecen todas las jornadas de ese lugar, de cualquier mes,
+- la ✕ quita el filtro.
+
+Las jornadas creadas antes de que la localidad fuera obligatoria aparecen en **Sin localidad**. Elige uno de
+sus escenarios y pulsa **Asignar localidad a este escenario** para ponérsela a todas de una vez.
+
+<img src="img/movil-buscar-lugar.png" width="300" alt="Buscador de lugar"> <img src="img/movil-filtro-lugar.png" width="300" alt="Calendario filtrado por localidad">
+
 ## Jornadas
+
+**Localidad** y **escenario** son obligatorios. Al escribir la localidad se sugieren sus escenarios, y si
+eliges un escenario que ya usaste, se rellena su localidad. Si escribes un lugar que ya existe con otras
+mayúsculas o sin tildes, se guarda como el que ya tenías, para no duplicarlo.
 
 El formulario cambia según la **modalidad**: aparecen tus modalidades arriba y, en «Otra…», el resto.
 Cada una tiene sus campos (cestillo y engodo en feeder, longitud de caña y flotador en coup, montaje, horas y

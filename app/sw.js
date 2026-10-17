@@ -1,6 +1,6 @@
 // Service worker: la app funciona sin conexión.
 // IMPORTANTE: sube VERSION en cada actualización o el móvil seguirá con la versión en caché.
-const VERSION = 'pesca-v4.0.0';
+const VERSION = 'pesca-v4.1.0';
 const SHELL = [
   './',
   'index.html',
@@ -15,6 +15,7 @@ const SHELL = [
   'js/social.js',
   'js/account.js',
   'js/modalities.js',
+  'js/places.js',
   'js/legal.js',
   'privacy.html',
   'terms.html',

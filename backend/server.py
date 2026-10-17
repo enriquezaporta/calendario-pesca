@@ -62,7 +62,7 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
-VERSION = "4.0.0"
+VERSION = "4.1.0"
 # Sube este valor cuando cambien la política de privacidad o las condiciones de uso:
 # los usuarios tendrán que aceptarlas de nuevo antes de seguir sincronizando.
 POLICY_VERSION = "2026-10"
@@ -98,7 +98,7 @@ SHARE_LEVELS = ("results", "full")
 REPORT_REASONS = ("spam", "acoso", "inapropiado", "otro")
 # Campos que ven los amigos cuando el usuario comparte "solo resultados".
 RESULT_FIELDS = {
-    "id", "type", "modality", "date", "time", "title", "venue", "competition", "round", "sector", "peg",
+    "id", "type", "modality", "date", "time", "title", "town", "venue", "competition", "round", "sector", "peg",
     "weightG", "pieces", "biggestG", "species", "sectorRank", "overallRank", "updatedAt",
 }
 

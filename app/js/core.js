@@ -94,6 +94,7 @@ export const state = {
   month: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
   selDay: null,
   listType: 'todos', listMod: 'all', listYear: new Date().getFullYear(),
+  place: null,    // filtro del calendario: {town, venue} (claves normalizadas)
   seasonYear: new Date().getFullYear(), seasonMod: 'all',
   compareYear: new Date().getFullYear(), compareMod: 'all',
   user: null,     // {id, username, name, modalities, shareLevel, needsConsent, hasRecovery}

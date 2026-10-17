@@ -1,5 +1,14 @@
 # Cambios
 
+## 4.1.0 · octubre 2026
+
+- **Localidad** en cada jornada. Localidad y escenario son obligatorios; los escenarios se sugieren según la
+  localidad y un escenario conocido rellena su localidad.
+- **Buscador del calendario** por localidad o escenario: desplegable de dos niveles (localidad › escenario),
+  búsqueda sin tildes ni mayúsculas, uso con teclado y lista de todas las jornadas del lugar elegido.
+- Asignar localidad de una vez a las jornadas antiguas de un escenario.
+- La localidad forma parte de los resultados que ven los amigos.
+
 ## 4.0.0 · octubre 2026
 
 - **Modalidades**: feeder, coup, carpfishing, black bass, spinning, mosca, surfcasting, embarcación y otra,

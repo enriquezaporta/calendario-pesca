@@ -16,6 +16,7 @@ se instala como app (PWA) y se aloja en tu propio servidor.
 ## Qué hace
 
 - **Calendario** de la temporada con todas tus jornadas; en el ordenador, con el resultado dentro de cada día.
+  **Buscador por localidad y escenario** con desplegable de dos niveles.
 - **Ficha de cada jornada** adaptada a la modalidad: feeder, coup (tralla), carpfishing, black bass,
   spinning, mosca, surfcasting, embarcación y otras. Peso, piezas, pieza mayor, especies, puestos, preparación
   (cebos, engodo, montajes, señuelos…), tiempo, marea en las de mar y una descripción.

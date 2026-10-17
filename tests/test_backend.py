@@ -62,7 +62,7 @@ def register(name=None, password="pesca-1234", mods=MODS):
 
 
 def session(sid, **kw):
-    s = {"id": sid, "type": "concurso", "modality": "feeder", "date": "2026-09-27",
+    s = {"id": sid, "type": "concurso", "modality": "feeder", "date": "2026-09-27", "town": "Calanda", "venue": "Embalse de Calanda",
          "updatedAt": "2026-09-27T10:00:00Z", "weightG": 8450, "pieces": 37, "notes": "secreto", "groundbait": "mezcla"}
     s.update(kw)
     return s
@@ -293,6 +293,7 @@ class FriendsAndChatTests(unittest.TestCase):
         self.assertEqual([s["id"] for s in res["sessions"]], ["ffffffff-0001"], "las privadas no se comparten")
         s = res["sessions"][0]
         self.assertNotIn("notes", s)          # "solo resultados" por defecto
+        self.assertEqual((s["town"], s["venue"]), ("Calanda", "Embalse de Calanda"))  # el lugar es un resultado
         self.assertNotIn("groundbait", s)
         self.assertEqual(s["weightG"], 8450)
         self.assertNotIn("id", res["user"])   # no se expone el id interno
